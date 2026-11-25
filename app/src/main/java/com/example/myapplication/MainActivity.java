@@ -1,5 +1,6 @@
 package com.example.myapplication;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
@@ -40,6 +41,20 @@ public class MainActivity extends AppCompatActivity {
         btnShare = findViewById(R.id.btnShare);
         Button btnReport = findViewById(R.id.btnReport);
         Button btnCallOffice = findViewById(R.id.btnCallOffice);
+        btnCallOffice.setOnClickListener(v -> IntentHelper.dial(this, OFFICE_PHONE));
+        btnNavigate.setOnClickListener(v -> {
+            FoundItem latest = ItemRepository.getLatest();
+            if (latest != null) {
+                IntentHelper.navigate(this, latest.getLocation());
+            }
+        });
+        btnShare.setOnClickListener(v -> {
+            FoundItem latest = ItemRepository.getLatest();
+            if (latest != null) {
+                IntentHelper.share(this, latest.toShareText());
+            }
+        });
+
 
         // TODO 4: btnReport פותח את ReportActivity דרך reportLauncher.launch(new Intent(this, ReportActivity.class))
 
@@ -49,13 +64,44 @@ public class MainActivity extends AppCompatActivity {
         //   btnShare -> IntentHelper.share עם toShareText של האחרונה (לבדוק שלא null)
 
         refresh();
+        btnReport.setOnClickListener(v -> {
+            launcher.launch(new Intent(this, ReportActivity.class));
+       });
     }
+        ActivityResultLauncher<Intent> launcher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK)
+                {
+                    String location = result.getData().getStringExtra(ReportActivity.EXTRA_LOCATION);
+                    String phone = result.getData().getStringExtra(ReportActivity.EXTRA_PHONE);
+                    String title = result.getData().getStringExtra(ReportActivity.EXTRA_TITLE);
+                    FoundItem item = new FoundItem(title, location, phone);
+                    ItemRepository.add(item);
+                    refresh();
+                }
+                else
+                {
+                    Toast.makeText(this, "הדיווח בוטל", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+
 
     // TODO 6: מציגים את המצב הנוכחי. מקרה קצה: עוד אין דיווחים
     private void refresh() {
         FoundItem latest = ItemRepository.getLatest();
-        // tvCount = "דווחו X מציאות" (ItemRepository.size)
-        // latest == null -> tvLatest = "עוד אין דיווחים...", ולכבות את btnNavigate ו-btnShare (setEnabled(false))
-        // אחרת -> tvLatest = שם, מקום ושעה של האחרונה, ולהדליק את שני הכפתורים
+        tvCount.setText("דווחו " + ItemRepository.size() +" "+ "אבידות");
+        if (latest == null)
+        {
+            tvLatest.setText("עוד לא דווחו מציאות. היה הראשון לדווח!");
+            btnNavigate.setEnabled(false);
+            btnShare.setEnabled(false);
+            return;
+        }
+        String details = latest.getTitle() + " • " + latest.getLocation() + " (" + latest.getTimeText() + ")";
+        tvLatest.setText(details);
+        btnNavigate.setEnabled(true);
+        btnShare.setEnabled(true);
     }
 }
